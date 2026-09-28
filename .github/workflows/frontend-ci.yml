@@ -1,0 +1,79 @@
+name: Frontend CI and deploy
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Check and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  deploy:
+    name: Deploy production
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://cullpilot.hoshsl.com
+    concurrency:
+      group: cullpilot-frontend-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Configure deployment SSH key
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Set DEPLOY_HOST in GitHub Actions secrets}"
+          : "${DEPLOY_SSH_KEY:?Set DEPLOY_SSH_KEY in GitHub Actions secrets}"
+          : "${DEPLOY_KNOWN_HOSTS:?Set DEPLOY_KNOWN_HOSTS in GitHub Actions secrets}"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      - name: Upload and activate release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          remote="deploy@${DEPLOY_HOST}"
+          ssh -o BatchMode=yes "$remote" "mkdir -p /var/www/cullpilot/releases/$release"
+          rsync -az --delay-updates -e 'ssh -o BatchMode=yes' dist/ "$remote:/var/www/cullpilot/releases/$release/"
+          previous=$(ssh -o BatchMode=yes "$remote" 'readlink /var/www/cullpilot/current || true')
+          ssh -o BatchMode=yes "$remote" "test -f /var/www/cullpilot/releases/$release/index.html && ln -sfn releases/$release /var/www/cullpilot/current.next && mv -Tf /var/www/cullpilot/current.next /var/www/cullpilot/current"
+          active=$(ssh -o BatchMode=yes "$remote" 'readlink /var/www/cullpilot/current')
+          test "$active" = "releases/$release"
+          if ! curl --fail --silent --show-error --location --max-time 20 -H 'Cache-Control: no-cache' https://cullpilot.hoshsl.com/ >/dev/null; then
+            if [ -n "$previous" ]; then
+              ssh -o BatchMode=yes "$remote" "ln -sfn '$previous' /var/www/cullpilot/current.next && mv -Tf /var/www/cullpilot/current.next /var/www/cullpilot/current"
+            fi
+            echo 'Homepage smoke check failed; previous release restored when available.' >&2
+            exit 1
+          fi
+          echo "Deployed $release"
