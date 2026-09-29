@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { platform } from '../platform/platform';
+import { transitionView } from '../shared/viewTransition';
 
 export const colors: Array<[string, number]> = [
   ['领航蓝', 221], ['晴空蓝', 209], ['冰川蓝', 194], ['青瓷', 176], ['薄荷', 151],
@@ -54,7 +55,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     setMode: mode => setState(current => ({ ...current, mode })),
     setColor: color => setState(current => ({ ...current, color })),
     setStyle: style => setState(current => ({ ...current, style })),
-    setLayout: layout => setState(current => ({ ...current, layout })),
+    setLayout: layout => transitionView('gallery', () => setState(current => ({ ...current, layout }))),
   }}>{children}</Context.Provider>;
 }
 export function useAppearance() { const context = useContext(Context); if (!context) throw new Error('AppearanceProvider is required'); return context; }

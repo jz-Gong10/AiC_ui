@@ -66,14 +66,19 @@ const realApi = {
   download: async (url: string) => { try { return (await http.get<Blob>(url.replace(/^\/api\/v1/, ''), { responseType: 'blob', timeout: 180_000 })).data; } catch (error) { return normalizeError(error); } },
 };
 
+// The workspace consumes one API contract. Development demo data is injected here,
+// so its routes, components, styles and motion are identical to live sessions.
+export type ApiSource = typeof realApi;
+const demoSource = import.meta.env.DEV ? () => import('../dev/demoApi').then(module => module.demoApi) : null;
+
 export const api: typeof realApi = new Proxy(realApi, {
   get(target, property, receiver) {
     const realMethod = Reflect.get(target, property, receiver);
     if (typeof realMethod !== 'function') return realMethod;
     return (...args: unknown[]) => {
-      if (import.meta.env.DEV && isDemoSession()) {
-        return import('../dev/demoApi').then(({ demoApi }) => {
-          const demoMethod = Reflect.get(demoApi, property) as (...values: unknown[]) => unknown;
+      if (demoSource && isDemoSession()) {
+        return demoSource().then(source => {
+          const demoMethod = Reflect.get(source, property) as (...values: unknown[]) => unknown;
           return demoMethod(...args);
         });
       }

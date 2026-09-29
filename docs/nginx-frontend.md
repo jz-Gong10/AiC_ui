@@ -1,6 +1,6 @@
 # 前端服务器 Nginx 初始化
 
-适用于 Ubuntu 前端服务器，域名 `cullpilot.hoshsl.com`，后端在另一台服务器且 HTTPS 地址暂未确定。以下命令以 root 身份在**前端服务器**执行。完成后，Nginx 从 `/var/www/cullpilot/current` 提供静态页面；`/api/` 暂时返回 503，等后端地址确定后再启用代理。
+适用于 Ubuntu 前端服务器，前端域名 `cullpilot.hoshsl.com`，独立 HTTPS 后端 `api.cullpilot.hoshsl.com`。以下命令以 root 身份在**前端服务器**执行。完成后，Nginx 从 `/var/www/cullpilot/current` 提供静态页面，并把 `/api/` 转发到后端。
 
 ## 1. 安装并检查
 
@@ -87,15 +87,22 @@ nginx -t
 
 如申请失败，先检查 DNS、公网 80 端口与云安全组。Certbot 会修改站点的 TLS 部分；之后改 `/api/` 时保留它生成的证书配置。
 
-## 5. 后端 HTTPS 地址确定后
+## 5. 接入后端 HTTPS
 
-编辑 `/etc/nginx/sites-available/cullpilot.hoshsl.com`，将临时的 `location ^~ /api/` 整段替换为：
+先从前端服务器测试后端地址：
+
+```bash
+curl -i --connect-timeout 10 https://api.cullpilot.hoshsl.com/api/v1/health
+```
+
+确认返回后，备份并编辑 `/etc/nginx/sites-available/cullpilot.hoshsl.com`。只在服务前端的 **443 HTTPS server 块**中，将临时的 `location ^~ /api/` 整段替换为：
 
 ```nginx
 location ^~ /api/ {
-    proxy_pass https://你的后端域名;
+    proxy_pass https://api.cullpilot.hoshsl.com;
     proxy_ssl_server_name on;
     proxy_ssl_verify on;
+    proxy_ssl_verify_depth 3;
     proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
 
     proxy_set_header Host $proxy_host;
@@ -109,11 +116,11 @@ location ^~ /api/ {
 }
 ```
 
-`proxy_pass` 只填后端的 HTTPS **源地址**（域名及必要端口），末尾不要加 `/`，以保留原始 `/api/v1/...` 路径。后端证书需由受信任的 CA 签发；如果使用自签证书，应配置对应 CA，而不是关闭校验。然后执行：
+`proxy_pass` 末尾不要加 `/`，以保留原始 `/api/v1/...` 路径。后端证书需由受信任的 CA 签发；如果使用自签证书，应配置对应 CA，而不是关闭校验。修改前先备份站点文件。检查 `nginx -t` 输出没有 `conflicting server name` 警告，再重载：
 
 ```bash
 nginx -t && systemctl reload nginx
 curl -i https://cullpilot.hoshsl.com/api/v1/health
 ```
 
-正常情况下，最后一条会返回后端的健康响应。此后浏览器和前端都继续只访问 `cullpilot.hoshsl.com`，无需设置跨域直连。
+两条健康检查应返回相同类型的后端响应。若前端域名下返回 502，检查前端服务器到 `api.cullpilot.hoshsl.com:443` 的连接、后端证书链以及 Nginx 错误日志。此后浏览器和前端都继续只访问 `cullpilot.hoshsl.com`，无需设置跨域直连。

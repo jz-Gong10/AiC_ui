@@ -1,4 +1,5 @@
 import type { Asset, Decision, ExportTask, Job, Page, PhotoGroup, Project, ProjectSettings, Summary, UploadBatch } from '../shared/types';
+import type { ApiSource } from '../shared/api';
 
 // This module is loaded only by the Vite development build. All data lives in memory.
 const now = () => new Date().toISOString();
@@ -155,4 +156,4 @@ export const demoApi = {
     return uploadedImages.get(id) || illustration(requiredAsset(id));
   },
   download: async (): Promise<Blob> => { throw new Error('本地演示没有导出文件。'); },
-};
+} satisfies ApiSource;

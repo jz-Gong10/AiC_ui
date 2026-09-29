@@ -6,6 +6,7 @@ import { AuthProvider } from './app/AuthProvider';
 import { AppearanceProvider } from './appearance/AppearanceProvider';
 import { App } from './app/App';
 import './styles/global.css';
+import './styles/motion.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: (count, error) => count < 2 && !(error instanceof Error && 'status' in error && Number(error.status) < 500), staleTime: 10_000 } } });
 ReactDOM.createRoot(document.getElementById('root')!).render(

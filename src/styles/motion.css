@@ -1,0 +1,178 @@
+/* Shared motion applies to the same workspace in live and local demo sessions. */
+:root {
+  --motion-fast: 160ms;
+  --motion-medium: 240ms;
+  --motion-slow: 320ms;
+  --motion-ease: cubic-bezier(.4, 0, .2, 1);
+  --motion-select: 280ms;
+  --motion-expand: 340ms;
+  --motion-gallery: 360ms;
+  --motion-workspace: 420ms;
+}
+
+.workspace-link,
+.profile-entry,
+.filters button,
+.gallery-layouts button,
+.segmented button,
+.decision-buttons button,
+.filmstrip button,
+.photo-card,
+.composer,
+.image-open {
+  transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease,
+    opacity var(--motion-fast) ease, transform var(--motion-fast) var(--motion-ease);
+}
+
+.photo-image:focus-visible .image-open { opacity: 1; }
+.filmstrip button:hover { transform: translateY(-2px); }
+.photo-card:hover { box-shadow: var(--panel-shadow); }
+.workspace-link,
+.filters button,
+.gallery-layouts button,
+.segmented button { transition-duration: var(--motion-select); }
+
+/* Keep group contents mounted so closing has an actual height to animate. */
+.stack {
+  transition: background-color var(--motion-expand) ease, border-color var(--motion-expand) ease,
+    padding var(--motion-expand) var(--motion-ease);
+}
+.stack-cover,
+.stack-caption,
+.stack-front,
+.stack-sheet {
+  transition: height var(--motion-expand) var(--motion-ease), top var(--motion-expand) var(--motion-ease),
+    padding var(--motion-expand) var(--motion-ease), transform var(--motion-expand) var(--motion-ease);
+}
+.stack-cover:hover .stack-sheet.back-two { transform: translate(11px, -7px) rotate(4deg); }
+.stack-cover:hover .stack-sheet.back-one { transform: translate(6px, -3px) rotate(2deg); }
+.stack-chevron {
+  position: absolute;
+  right: 11px;
+  bottom: 17px;
+  color: var(--accent);
+  transition: transform var(--motion-expand) var(--motion-ease);
+}
+.stack.expanded .stack-chevron { transform: rotate(180deg); }
+.stack-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows var(--motion-expand) var(--motion-ease),
+    opacity var(--motion-expand) ease, visibility 0s linear var(--motion-expand);
+}
+.stack.expanded .stack-reveal {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows var(--motion-expand) var(--motion-ease),
+    opacity var(--motion-expand) ease, visibility 0s;
+}
+.stack-reveal-inner { min-height: 0; overflow: hidden; }
+
+.upload-banner,
+.job-banner,
+.notice,
+.chat-bubble {
+  animation: content-enter var(--motion-medium) var(--motion-ease) both;
+}
+@keyframes content-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* The persistent gallery stage and workbench are the only captured surfaces. */
+.gallery-stage { display: flex; flex: 1; flex-direction: column; min-height: 0; position: relative; }
+:root[data-transition=gallery] .gallery-stage { view-transition-name: gallery-stage; }
+:root[data-transition=workspace] .workbench { view-transition-name: workspace-stage; }
+:root[data-transition=workspace] .top-title h1 { view-transition-name: workspace-title; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-group(root) { animation: none; }
+::view-transition-group(gallery-stage) { animation-duration: var(--motion-gallery); animation-timing-function: var(--motion-ease); }
+::view-transition-group(workspace-stage),
+::view-transition-group(workspace-title) { animation-duration: var(--motion-workspace); animation-timing-function: var(--motion-ease); }
+::view-transition-old(gallery-stage),
+::view-transition-new(gallery-stage) { animation-duration: var(--motion-gallery); animation-timing-function: var(--motion-ease); animation-fill-mode: both; }
+::view-transition-old(workspace-stage),
+::view-transition-new(workspace-stage),
+::view-transition-old(workspace-title),
+::view-transition-new(workspace-title) { animation-duration: var(--motion-workspace); animation-timing-function: var(--motion-ease); animation-fill-mode: both; }
+::view-transition-old(gallery-stage),
+::view-transition-old(workspace-stage),
+::view-transition-old(workspace-title) { animation-name: surface-leave; }
+::view-transition-new(gallery-stage),
+::view-transition-new(workspace-stage),
+::view-transition-new(workspace-title) { animation-name: surface-enter; }
+@keyframes surface-leave { from { opacity: 1; } to { opacity: 0; } }
+@keyframes surface-enter { from { opacity: 0; } to { opacity: 1; } }
+
+.filters button { position: relative; }
+.filters button[data-pending=true]::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: pending-pulse .7s ease-in-out infinite alternate;
+}
+.workspace-link[data-pending=true] { background: var(--accent-soft); }
+.workspace-link[data-pending=true] .workspace-icon svg { animation: pending-pulse .7s ease-in-out infinite alternate; }
+@keyframes pending-pulse { from { opacity: .3; } to { opacity: 1; } }
+
+
+.dialog-overlay[data-state=open],
+.drawer-backdrop[data-state=open] { animation: overlay-in var(--motion-medium) ease both; }
+.dialog-overlay[data-state=closed],
+.drawer-backdrop[data-state=closed] { animation: overlay-out var(--motion-fast) ease both; }
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes overlay-out { from { opacity: 1; } to { opacity: 0; } }
+
+.dialog-content[data-state=open] { animation: dialog-in var(--motion-medium) var(--motion-ease) both; }
+.dialog-content[data-state=closed] { animation: dialog-out var(--motion-fast) ease both; }
+@keyframes dialog-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(.97); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes dialog-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(.98); }
+}
+
+.viewer-content[data-state=open] { animation: viewer-in var(--motion-medium) var(--motion-ease) both; }
+.viewer-content[data-state=closed] { animation: viewer-out var(--motion-fast) ease both; }
+@keyframes viewer-in { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: scale(1); } }
+@keyframes viewer-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(.985); } }
+
+.drawer[data-state=open] { animation: drawer-in var(--motion-slow) var(--motion-ease) both; }
+.drawer[data-state=closed] { animation: drawer-out var(--motion-medium) var(--motion-ease) both; }
+.drawer { position: fixed; z-index: 20; }
+@keyframes drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes drawer-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
+
+@media (max-width: 850px) {
+  .mobile-shade {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--motion-medium) ease, visibility 0s linear var(--motion-medium);
+  }
+  .mobile-shade[data-open=true] {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity var(--motion-medium) ease, visibility 0s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
