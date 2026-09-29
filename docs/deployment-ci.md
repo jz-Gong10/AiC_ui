@@ -1,10 +1,10 @@
 # CullPilot 前端 CI/CD 部署
 
-本仓库的 `.github/workflows/frontend-ci.yml` 在 PR 上运行 `npm ci`、Lint 和生产构建；`main` 分支有新提交或手动运行工作流时，检查通过后将 `dist/` 发布到前端服务器。服务器只需 Nginx 和 `rsync`，不需 Node 或后端运行时。前端仍通过同域 `/api/v1` 请求，由 Nginx 转发到独立的 HTTPS 后端。
+本仓库的 `.github/workflows/frontend-ci.yml` 在 PR 上运行 `npm ci`、Lint 和生产构建；`main` 分支有新提交或手动运行工作流时，检查通过后将 `dist/` 发布到前端服务器。服务器只需 Nginx 和 `rsync`，不需 Node 或后端运行时。前端仍通过同域 `/api/v1` 请求，由 Nginx 转发到独立的后端；当前后端使用 HTTP:8080，计划升级为 HTTPS。
 
 ## 1. 前端服务器准备（root 执行一次）
 
-先按 [Nginx 初始化步骤](nginx-frontend.md)将 `cullpilot.hoshsl.com` 的根目录指向 `/var/www/cullpilot/current` 并配置 HTTPS。后端地址暂未确定时，`/api/` 可先保持 503 占位，前端静态页面与 CI 发布不受影响。然后执行：
+先按 [Nginx 初始化步骤](nginx-frontend.md)将 `cullpilot.hoshsl.com` 的根目录指向 `/var/www/cullpilot/current`，配置前端 HTTPS 与当前后端代理。然后执行：
 
 ```bash
 apt update && apt install -y rsync

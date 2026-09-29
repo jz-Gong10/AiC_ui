@@ -5,7 +5,8 @@ import type { ApiSource } from '../shared/api';
 const now = () => new Date().toISOString();
 const settings = (): ProjectSettings => ({
   keepPerGroup: 2, strictness: 'standard', contentMode: 'auto',
-  weights: {}, constraints: {},
+  weights: { sharpness: 0.3, eyesOpen: 0.25, expression: 0.15, exposure: 0.15, composition: 0.1, motion: 0.05 },
+  constraints: { avoidSevereBlur: true, avoidSevereOverexposure: true, allowMildMotionBlur: true, preferFrontFacing: false },
   privacy: { sendThumbnailsToProvider: false, stripGpsOnExport: true },
 });
 const projects: Project[] = [
@@ -92,6 +93,10 @@ export const demoApi = {
     project.settings = { ...project.settings, ...changes };
     project.updatedAt = now(); return currentProject(id);
   },
+  parseInstruction: async (id: string, text: string) => {
+    const current = requiredProject(id).settings;
+    return { text, strategy: { keepPerGroup: current.keepPerGroup, strictness: current.strictness, contentMode: current.contentMode, weights: current.weights, constraints: current.constraints }, confidence: 0, unsupportedTerms: [], explanation: '本地演示不会解析自然语言，请在筛选设置中调整参数。', fallbackUsed: true, provider: null, model: null };
+  },
   deleteProject: async (id: string) => {
     const index = projects.findIndex(item => item.id === id);
     if (index < 0) throw new Error('演示工作区不存在。');
@@ -104,7 +109,7 @@ export const demoApi = {
     const source = projectAssets(id).filter(item => filter === 'recommended' ? item.recommendation === 'keep' : filter === 'keep' || filter === 'review' || filter === 'reject' ? item.decision === filter : true);
     return page(source, number);
   },
-  groups: async (id: string) => page(projectGroups(id), 1, 100),
+  groups: async (id: string, number = 1) => page(projectGroups(id), number, 100),
   groupAssets: async (id: string, number = 1) => page(assets.filter(item => item.groupId === id), number, 100),
   asset: async (id: string) => requiredAsset(id),
   decision: async (asset: Asset, decision: Decision) => {

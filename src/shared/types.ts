@@ -20,6 +20,16 @@ export interface Asset {
   exif: Record<string, unknown>; quality: Record<string, unknown>;
   version: number; createdAt: string; updatedAt: string;
   rank?: number | null; recommendScore?: number | null; membershipReason?: string | null;
+  recommendReasons?: string[]; features?: Record<string, unknown>;
+}
+export interface SelectionStrategy {
+  keepPerGroup: number; strictness: string; contentMode: string;
+  weights: Record<string, number>; constraints: Record<string, boolean>;
+}
+export interface ParsedInstruction {
+  text: string; strategy: SelectionStrategy; confidence: number;
+  unsupportedTerms: string[]; explanation: string;
+  fallbackUsed: boolean; provider: string | null; model: string | null;
 }
 export interface PhotoGroup {
   id: string; projectId: string; groupNo: number; groupType: string;

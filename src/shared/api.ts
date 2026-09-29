@@ -1,5 +1,5 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
-import type { Asset, AuthResult, Decision, ExportTask, Job, Page, PhotoGroup, Project, ProjectSettings, Summary, UploadBatch, User } from './types';
+import type { Asset, AuthResult, Decision, ExportTask, Job, Page, ParsedInstruction, PhotoGroup, Project, ProjectSettings, Summary, UploadBatch, User } from './types';
 import { isDemoSession } from './demoMode';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -9,6 +9,13 @@ export function setAccessToken(value: string | null) { accessToken = value; }
 http.interceptors.request.use(config => {
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
+});
+http.interceptors.response.use(response => response, error => {
+  if (axios.isAxiosError(error) && error.response?.status === 401 && accessToken) {
+    setAccessToken(null);
+    window.dispatchEvent(new Event('cullpilot:session-expired'));
+  }
+  return Promise.reject(error);
 });
 
 interface Envelope<T> { data: T; meta?: { requestId?: string } }
@@ -43,9 +50,10 @@ const realApi = {
   project: (id: string) => get<Project>(`/projects/${id}`),
   createProject: (name: string) => post<Project>('/projects', { name }),
   patchSettings: (id: string, settings: Partial<ProjectSettings>) => patch<Project>(`/projects/${id}/settings`, settings),
+  parseInstruction: (id: string, text: string) => post<ParsedInstruction>(`/projects/${id}/parse-instruction`, { text }),
   deleteProject: async (id: string) => { try { return (await http.delete(`/projects/${id}`)).data; } catch (error) { return normalizeError(error); } },
   assets: (projectId: string, page: number, filter?: string) => get<Page<Asset>>(`/projects/${projectId}/assets`, { params: { page, pageSize: 50, sort: 'createdAt:asc', ...(filter === 'keep' || filter === 'review' || filter === 'reject' ? { decision: filter } : filter === 'recommended' ? { recommendation: 'keep' } : {}) } }),
-  groups: (projectId: string) => get<Page<PhotoGroup>>(`/projects/${projectId}/groups`, { params: { page: 1, pageSize: 100 } }),
+  groups: (projectId: string, page = 1) => get<Page<PhotoGroup>>(`/projects/${projectId}/groups`, { params: { page, pageSize: 100 } }),
   groupAssets: (groupId: string, page = 1) => get<Page<Asset>>(`/groups/${groupId}/assets`, { params: { page, pageSize: 100 } }),
   asset: (id: string) => get<Asset>(`/assets/${id}`),
   decision: (asset: Asset, decision: Decision) => patch<Asset>(`/assets/${asset.id}/decision`, { decision, expectedVersion: asset.version }),
@@ -60,7 +68,7 @@ const realApi = {
   cancelJob: (id: string) => post<Job>(`/jobs/${id}/cancel`),
   retryJob: (id: string) => post<Job>(`/jobs/${id}/retry`),
   summary: (id: string) => get<Summary>(`/projects/${id}/summary`),
-  createExport: (id: string, selection: 'keep' | 'keepAndReview') => post<ExportTask>(`/projects/${id}/export`, { selection, copyImages: true, stripGps: true, includeManifest: true, manifestFormat: 'csv' }),
+  createExport: (id: string, selection: 'keep' | 'keepAndReview', options: { copyImages: boolean; stripGps: boolean; includeManifest: boolean }) => post<ExportTask>(`/projects/${id}/export`, { selection, ...options, manifestFormat: 'csv' }),
   exportTask: (id: string) => get<ExportTask>(`/exports/${id}`),
   image: async (url: string) => { try { return (await http.get<Blob>(url.replace(/^\/api\/v1/, ''), { responseType: 'blob' })).data; } catch (error) { return normalizeError(error); } },
   download: async (url: string) => { try { return (await http.get<Blob>(url.replace(/^\/api\/v1/, ''), { responseType: 'blob', timeout: 180_000 })).data; } catch (error) { return normalizeError(error); } },

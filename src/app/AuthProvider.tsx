@@ -28,6 +28,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
+    const expired = () => { setAccessToken(null); sessionStorage.removeItem(STORAGE_KEY); queryClient.clear(); setUser(null); };
+    window.addEventListener('cullpilot:session-expired', expired);
+    return () => window.removeEventListener('cullpilot:session-expired', expired);
+  }, [queryClient]);
+  useEffect(() => {
     if (isDemoSession()) { setUser(demoUser); setLoading(false); return; }
     const saved = restore();
     if (!saved) { setLoading(false); return; }

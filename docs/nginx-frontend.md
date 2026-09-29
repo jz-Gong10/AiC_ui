@@ -1,6 +1,6 @@
 # 前端服务器 Nginx 初始化
 
-适用于 Ubuntu 前端服务器，前端域名 `cullpilot.hoshsl.com`，独立 HTTPS 后端 `api.cullpilot.hoshsl.com`。以下命令以 root 身份在**前端服务器**执行。完成后，Nginx 从 `/var/www/cullpilot/current` 提供静态页面，并把 `/api/` 转发到后端。
+适用于 Ubuntu 前端服务器，前端域名 `cullpilot.hoshsl.com`，独立后端当前位于 `http://api.cullpilot.hoshsl.com:8080`。以下命令以 root 身份在**前端服务器**执行。完成后，Nginx 从 `/var/www/cullpilot/current` 提供静态页面，并把 `/api/` 转发到后端。浏览器仍只访问前端 HTTPS 域名。
 
 ## 1. 安装并检查
 
@@ -87,23 +87,19 @@ nginx -t
 
 如申请失败，先检查 DNS、公网 80 端口与云安全组。Certbot 会修改站点的 TLS 部分；之后改 `/api/` 时保留它生成的证书配置。
 
-## 5. 接入后端 HTTPS
+## 5. 接入当前 HTTP:8080 后端
 
 先从前端服务器测试后端地址：
 
 ```bash
-curl -i --connect-timeout 10 https://api.cullpilot.hoshsl.com/api/v1/health
+curl -i --connect-timeout 10 --max-time 20 http://api.cullpilot.hoshsl.com:8080/api/v1/health
 ```
 
 确认返回后，备份并编辑 `/etc/nginx/sites-available/cullpilot.hoshsl.com`。只在服务前端的 **443 HTTPS server 块**中，将临时的 `location ^~ /api/` 整段替换为：
 
 ```nginx
 location ^~ /api/ {
-    proxy_pass https://api.cullpilot.hoshsl.com;
-    proxy_ssl_server_name on;
-    proxy_ssl_verify on;
-    proxy_ssl_verify_depth 3;
-    proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+    proxy_pass http://api.cullpilot.hoshsl.com:8080;
 
     proxy_set_header Host $proxy_host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -116,11 +112,13 @@ location ^~ /api/ {
 }
 ```
 
-`proxy_pass` 末尾不要加 `/`，以保留原始 `/api/v1/...` 路径。后端证书需由受信任的 CA 签发；如果使用自签证书，应配置对应 CA，而不是关闭校验。修改前先备份站点文件。检查 `nginx -t` 输出没有 `conflicting server name` 警告，再重载：
+`proxy_pass` 末尾不要加 `/`，以保留原始 `/api/v1/...` 路径。修改前先备份站点文件。检查 `nginx -t` 输出没有 `conflicting server name` 警告，再重载：
 
 ```bash
 nginx -t && systemctl reload nginx
 curl -i https://cullpilot.hoshsl.com/api/v1/health
 ```
 
-两条健康检查应返回相同类型的后端响应。若前端域名下返回 502，检查前端服务器到 `api.cullpilot.hoshsl.com:443` 的连接、后端证书链以及 Nginx 错误日志。此后浏览器和前端都继续只访问 `cullpilot.hoshsl.com`，无需设置跨域直连。
+两条健康检查应返回相同类型的后端响应。若前端域名下返回 502，检查前端服务器到 `api.cullpilot.hoshsl.com:8080` 的连接、后端防火墙以及 Nginx 错误日志。此后浏览器和前端都继续只访问 `cullpilot.hoshsl.com`，无需设置跨域直连。
+
+当前 Nginx 到后端的 HTTP 链路未加密。如果两台服务器有私有网络，优先将 `proxy_pass` 指向后端内网 IP:8080，并限制该端口只接受前端服务器连接；若经过公网，应尽快为后端启用 HTTPS，并在此之前至少限制后端 8080 的来源 IP。升级后将 `proxy_pass` 改为 `https://api.cullpilot.hoshsl.com`，增加 `proxy_ssl_server_name on;`、`proxy_ssl_verify on;` 和 `proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;`，再测试健康接口。
