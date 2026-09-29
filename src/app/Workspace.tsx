@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Aperture, ArrowRight, Check, ChevronRight, CircleHelp, Download, FolderOpen, ImagePlus, LoaderCircle, LogOut, Menu, Moon, Palette, Plus, Send, Settings2, Sparkles, Sun, Trash2, Upload, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, CircleHelp, Download, FolderOpen, ImagePlus, LoaderCircle, LogOut, Menu, Moon, Palette, Plus, Send, Settings2, Sparkles, Sun, Trash2, Upload, X } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { colors, styles, useAppearance } from '../appearance/AppearanceProvider';
 import { api } from '../shared/api';
@@ -12,6 +12,7 @@ import { clearImageCache } from '../shared/useImage';
 import { platform } from '../platform/platform';
 import type { ExportTask, Project } from '../shared/types';
 import { Gallery } from '../features/review/Gallery';
+import { BrandLogo } from '../shared/BrandLogo';
 
 const terminal = new Set(['succeeded', 'partialFailed', 'failed', 'cancelled']);
 const MAX_FILE = 20 * 1024 * 1024;
@@ -122,7 +123,7 @@ export function Workspace() {
   }
   const messages = projectId ? chat[projectId] || [] : [];
   return <div className="app-shell">
-    <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}><div className="brand"><Aperture size={26} strokeWidth={2.5} /><strong>CullPilot</strong><button className="icon-button mobile-only" onClick={() => setSidebarOpen(false)} aria-label="关闭工作区列表"><X size={18} /></button></div><button className="button new-workspace" onClick={() => setNewOpen(true)}><Plus size={17} /> 新建工作区</button><div className="side-caption">我的工作区 <span>{totalProjects}</span></div>
+    <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}><div className="brand"><BrandLogo className="sidebar-logo" /><button className="icon-button mobile-only" onClick={() => setSidebarOpen(false)} aria-label="关闭工作区列表"><X size={18} /></button></div><button className="button new-workspace" onClick={() => setNewOpen(true)}><Plus size={17} /> 新建工作区</button><div className="side-caption">我的工作区 <span>{totalProjects}</span></div>
       <nav className="workspace-list" aria-label="工作区列表">{list.isPending && <p className="sidebar-hint">正在加载…</p>}{list.isError && <p className="sidebar-hint">{errorText(list.error)} <button onClick={() => list.refetch()}>重试</button></p>}{projects.map(item => <button className={`workspace-link ${item.id === projectId ? 'active' : ''}`} key={item.id} onClick={() => { navigate(`/projects/${item.id}/review`); setSidebarOpen(false); }}><span className="workspace-icon"><FolderOpen size={17} /></span><span><strong>{item.name}</strong><small>{item.assetCount} 张素材</small></span>{item.id === projectId && <span className="active-dot" />}</button>)}{list.hasNextPage && <button className="button small full" disabled={list.isFetchingNextPage} onClick={() => list.fetchNextPage()}>{list.isFetchingNextPage ? '加载中…' : '加载更多工作区'}</button>}</nav>
       <div className="sidebar-foot"><ProfileDialog projectCount={totalProjects} /><div className="sidebar-trust"><Check size={15} /> {demo ? '本地演示，不连接后端' : '照片由你的工作区管理'}</div></div>
     </aside>
