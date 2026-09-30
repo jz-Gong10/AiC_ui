@@ -1,39 +1,28 @@
 import { flushSync } from 'react-dom';
 
 export type TransitionSurface = 'gallery' | 'workspace';
-let activeTransition: ViewTransition | null = null;
-let revision = 0;
+const activeAnimations = new Set<Animation>();
 
-// Keep the native transition scoped to the surface that actually changes.
-// Reduced-motion and unsupported browsers still receive the state update.
+// Animate the live DOM instead of native view-transition snapshots. The native
+// top layer intercepts pointer input even outside the animated gallery surface.
 export function transitionView(surface: TransitionSurface, update: () => void) {
-  const root = document.documentElement;
-  const currentRevision = ++revision;
-  activeTransition?.skipTransition();
-  activeTransition = null;
-  if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    delete root.dataset.transition;
-    update();
-    return;
-  }
+  for (const animation of activeAnimations) animation.cancel();
+  activeAnimations.clear();
+  flushSync(update);
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  root.dataset.transition = surface;
-  try {
-    const transition = document.startViewTransition(() => {
-      if (currentRevision === revision) flushSync(update);
-    });
-    activeTransition = transition;
-    void transition.ready.catch(() => {});
-    void transition.finished.catch(() => {}).finally(() => {
-      if (currentRevision === revision) {
-        activeTransition = null;
-        delete root.dataset.transition;
-      }
-    });
-  } catch {
-    if (currentRevision === revision) {
-      delete root.dataset.transition;
-      update();
+  const selector = surface === 'gallery' ? '.gallery-stage' : '.workbench, .top-title h1';
+  for (const element of document.querySelectorAll<HTMLElement>(selector)) {
+    if (!element.animate || !element.getClientRects().length) continue;
+    try {
+      const animation = element.animate([{ opacity: 0.8 }, { opacity: 1 }], {
+        duration: surface === 'gallery' ? 180 : 220,
+        easing: 'ease-out',
+      });
+      activeAnimations.add(animation);
+      animation.onfinish = animation.oncancel = () => { activeAnimations.delete(animation); };
+    } catch {
+      // The state is already committed; animation support never gates input.
     }
   }
 }

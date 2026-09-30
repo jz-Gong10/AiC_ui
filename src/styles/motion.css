@@ -6,8 +6,6 @@
   --motion-ease: cubic-bezier(.4, 0, .2, 1);
   --motion-select: 280ms;
   --motion-expand: 340ms;
-  --motion-gallery: 360ms;
-  --motion-workspace: 420ms;
 }
 
 .workspace-link,
@@ -83,30 +81,8 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* The persistent gallery stage and workbench are the only captured surfaces. */
+/* Content fades animate the live DOM; controls remain available throughout. */
 .gallery-stage { display: flex; flex: 1; flex-direction: column; min-height: 0; position: relative; }
-:root[data-transition=gallery] .gallery-stage { view-transition-name: gallery-stage; }
-:root[data-transition=workspace] .workbench { view-transition-name: workspace-stage; }
-:root[data-transition=workspace] .top-title h1 { view-transition-name: workspace-title; }
-::view-transition-old(root), ::view-transition-new(root) { animation: none; }
-::view-transition-group(root) { animation: none; }
-::view-transition-group(gallery-stage) { animation-duration: var(--motion-gallery); animation-timing-function: var(--motion-ease); }
-::view-transition-group(workspace-stage),
-::view-transition-group(workspace-title) { animation-duration: var(--motion-workspace); animation-timing-function: var(--motion-ease); }
-::view-transition-old(gallery-stage),
-::view-transition-new(gallery-stage) { animation-duration: var(--motion-gallery); animation-timing-function: var(--motion-ease); animation-fill-mode: both; }
-::view-transition-old(workspace-stage),
-::view-transition-new(workspace-stage),
-::view-transition-old(workspace-title),
-::view-transition-new(workspace-title) { animation-duration: var(--motion-workspace); animation-timing-function: var(--motion-ease); animation-fill-mode: both; }
-::view-transition-old(gallery-stage),
-::view-transition-old(workspace-stage),
-::view-transition-old(workspace-title) { animation-name: surface-leave; }
-::view-transition-new(gallery-stage),
-::view-transition-new(workspace-stage),
-::view-transition-new(workspace-title) { animation-name: surface-enter; }
-@keyframes surface-leave { from { opacity: 1; } to { opacity: 0; } }
-@keyframes surface-enter { from { opacity: 0; } to { opacity: 1; } }
 
 .filters button { position: relative; }
 .filters button[data-pending=true]::after {

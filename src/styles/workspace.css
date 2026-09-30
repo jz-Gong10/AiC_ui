@@ -1,0 +1,46 @@
+/* Explicit flex sizing prevents portrait images from enlarging a grid track
+   past the viewer's available height and being clipped by overflow:hidden. */
+.viewer-content { overflow: hidden; }
+.viewer-content h2, .viewer-footer { flex-shrink: 0; }
+.viewer-image { display: flex; align-items: center; justify-content: center; min-width: 0; }
+.viewer-image img { display: block; min-width: 0; min-height: 0; max-width: 100%; max-height: 100%; object-fit: contain; }
+
+.workbench.resizable-workbench {
+  grid-template-columns: clamp(240px, var(--chat-share), calc(100% - 328px)) 8px minmax(0, 1fr);
+}
+.resizable-workbench .chat-panel { min-width: 0; border-right: 0; }
+.workspace-divider, .composer-resize {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  touch-action: none;
+  user-select: none;
+}
+.workspace-divider {
+  width: 8px;
+  min-width: 0;
+  cursor: col-resize;
+  background: var(--surface-alt);
+  border-inline: 1px solid var(--line);
+}
+.workspace-divider svg { flex-shrink: 0; width: 8px; }
+.workspace-divider:hover, .workspace-divider[data-dragging=true],
+.composer-resize:hover, .composer-resize[data-dragging=true] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.resizable-workbench .chat-bottom { flex-shrink: 0; }
+.resizable-composer { position: relative; }
+.resizable-composer label { display: block; padding-right: 26px; }
+.composer.resizable-composer textarea { display: block; height: var(--composer-height); resize: none; }
+.composer-resize { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 5px; cursor: ns-resize; }
+
+@media (max-width: 650px) {
+  .resizable-workbench .chat-panel { height: var(--chat-panel-height); }
+  .workspace-divider { flex: none; width: 100%; height: 12px; border-inline: 0; border-block: 1px solid var(--line); cursor: row-resize; }
+  .workspace-divider svg { width: 16px; }
+}

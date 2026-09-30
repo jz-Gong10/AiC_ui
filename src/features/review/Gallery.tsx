@@ -92,6 +92,7 @@ export function Gallery({ projectId, groupCount, onUpload, onNotice }: { project
       await warmThumbnails(nextPage.items.map(asset => asset.thumbnailUrl));
       if (request !== viewRequest.current) return;
       transitionView('gallery', () => {
+        if (request !== viewRequest.current) return;
         setSearch(current => { const next = new URLSearchParams(current); if (value === 'all') next.delete('filter'); else next.set('filter', value); next.delete('page'); return next; });
         setExpanded({});
         setPendingView(null);
@@ -106,6 +107,7 @@ export function Gallery({ projectId, groupCount, onUpload, onNotice }: { project
       await warmThumbnails(nextPage.items.map(asset => asset.thumbnailUrl));
       if (request !== viewRequest.current) return;
       transitionView('gallery', () => {
+        if (request !== viewRequest.current) return;
         setSearch(current => { const next = new URLSearchParams(current); next.set('page', String(value)); return next; });
         setSelectedId(null); setCompareId(null); setExpanded({}); setPendingView(null);
       });
