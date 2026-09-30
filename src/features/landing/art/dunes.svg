@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#d4d7d4"/><stop offset="1" stop-color="#f3dec3"/></linearGradient>
+    <linearGradient id="sand" x2=".7" y2="1"><stop stop-color="#dfba87"/><stop offset="1" stop-color="#a97650"/></linearGradient>
+    <linearGradient id="ridge" x2=".5" y2="1"><stop stop-color="#f3d4a2"/><stop offset="1" stop-color="#d3a16f"/></linearGradient>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".7" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".1"/></feComponentTransfer><feBlend in="SourceGraphic" mode="soft-light"/></filter>
+  </defs>
+  <g filter="url(#grain)">
+    <path fill="url(#sky)" d="M0 0h1200v800H0z"/>
+    <circle cx="934" cy="237" r="50" fill="#faf0d8"/>
+    <path fill="#d7b894" d="M0 444q238-128 491-29t709-43v428H0z"/>
+    <path fill="url(#sand)" d="M0 558q451-337 809-54t391 2v294H0z"/>
+    <path fill="url(#ridge)" d="M0 558q299-202 479-76Q331 550 271 800H0z"/>
+    <path fill="#926648" d="M439 800q307-437 761-288v288z"/>
+    <path fill="#e6bd88" d="M439 800q223-312 459-311Q728 630 681 800z"/>
+    <path fill="none" stroke="#efcd9b" opacity=".3" stroke-width="2" d="M26 611q120-51 275-76M14 634q110-47 267-77M2 659q112-49 250-80M0 690q105-44 239-88M0 720q112-42 221-88M0 752q120-44 204-94"/>
+    <path fill="#5d574c" d="M730 509h6v23h-6z"/><circle cx="733" cy="505" r="5" fill="#5d574c"/>
+  </g>
+</svg>
