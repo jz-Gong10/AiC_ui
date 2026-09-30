@@ -1,0 +1,16 @@
+.brand-loader { display: inline-flex; flex: none; width: 24px; height: 24px; vertical-align: middle; line-height: 0; }
+.brand-loader img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.brand-loader[data-size=inline] { width: 20px; height: 20px; }
+.brand-loader[data-size=panel] { width: 64px; height: 64px; }
+.brand-loader[data-size=hero] { width: 104px; height: 104px; }
+.brand-loader[data-variant=horizontal] { width: 196px; height: auto; aspect-ratio: 86.33 / 24.2; max-width: 100%; }
+.brand-loader[data-variant=horizontal][data-size=hero] { width: 240px; }
+.brand-loading { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: inherit; line-height: 1.6; }
+.brand-loading[data-size=panel], .brand-loading[data-size=hero] { flex-direction: column; gap: 16px; }
+.brand-loader-block { display: flex; padding: 24px 16px; color: var(--muted); }
+.brand-loader-boot { font-size: 13px; }
+.gallery-pending { display: flex; align-items: center; gap: 8px; padding: 8px 22px; color: var(--muted); font-size: 11px; }
+.landing-scene-loading .brand-loading { position: absolute; bottom: 15%; color: var(--landing-muted); }
+.landing-scene-loading .brand-loader img { width: 100%; border: 0; border-radius: 0; transform: none; box-shadow: none; }
+.landing-ai-prompt .brand-loader { width: 24px; height: 24px; }
+.image-placeholder .brand-loader[data-size=panel] { width: 48px; height: 48px; }

@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type MutableRefObject } from 'react';
-import { Check, RotateCcw } from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState, type MutableRefObject } from 'react';
+import { Check, RotateCcw, Sparkles } from 'lucide-react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { photos } from './photos';
+import { BrandLoader } from '../../shared/BrandLoader';
+import { useDemoAnalysis } from './useDemoAnalysis';
+import { createAnalysisBorderGeometry, createAnalysisBorderMaterial } from './analysisBorder';
 
 export interface SceneMotion { progress: number; invalidate?: () => void }
 
@@ -55,6 +58,21 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
   const [selected, setSelected] = useState(2);
   const [kept, setKept] = useState<number[]>([]);
   const choices = useRef({ selected: 2, kept: [] as number[], touched: false });
+  const { view: analysisView, api: analysis } = useDemoAnalysis(motion, host);
+  const gradientId = useId();
+  const fallbackBorder = 'M8 2 H332 Q338 2 338 8 V250 Q338 256 332 256 H8 Q2 256 2 250 V8 Q2 2 8 2';
+  const choose = useCallback((index: number) => {
+    choices.current.touched = true;
+    choices.current.selected = index;
+    setSelected(index);
+    analysis.request(index);
+    motion.current.invalidate?.();
+  }, [analysis, motion]);
+
+  useEffect(() => {
+    // Static fallback previews can demonstrate the same cancellable analysis.
+    if (!ready && analysisView.phase === 'waiting' && analysisView.index !== null) analysis.begin(analysisView.index);
+  }, [ready, analysisView.phase, analysisView.index, analysis]);
 
   useEffect(() => {
     choices.current.selected = selected;
@@ -75,7 +93,7 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
       setInteractive(true);
       return;
     }
-    const compact = window.matchMedia('(max-width: 900px)');
+    const compact = window.matchMedia('(max-width: 900px), (max-height: 800px)');
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -98,6 +116,8 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
     const geometry = new RoundedBoxGeometry(3.4, 2.58, 0.09, 2, 0.055);
     const imageGeometry = new THREE.PlaneGeometry(3.18, 2.12);
     const captionGeometry = new THREE.PlaneGeometry(3.18, 0.25);
+    const borderGeometry = createAnalysisBorderGeometry();
+    const borders: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>[] = [];
     const loader = new THREE.TextureLoader();
     let loaded = 0;
     const papers: THREE.MeshStandardMaterial[] = [];
@@ -120,6 +140,10 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
       const caption = captionTexture(index); textures.push(caption);
       const label = new THREE.Mesh(captionGeometry, new THREE.MeshBasicMaterial({ map: caption, transparent: true }));
       label.position.set(0, -1.115, 0.054); card.add(label);
+      const border = new THREE.Mesh(borderGeometry, createAnalysisBorderMaterial());
+      border.position.z = 0.072;
+      border.visible = false;
+      borders.push(border); card.add(border);
       card.position.set(...spread[index].slice(0, 3) as [number, number, number]);
       card.rotation.set(...spread[index].slice(3, 6) as [number, number, number]);
       card.scale.setScalar(spread[index][6]);
@@ -184,7 +208,7 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
     const onPick = (event: PointerEvent) => {
       if (event.button !== 0 || down.distanceTo(new THREE.Vector2(event.clientX, event.clientY)) > 8) return;
       const index = hitPhoto(event);
-      if (index >= 0) { selection.touched = true; selection.selected = index; setSelected(index); start(); }
+      if (index >= 0) { choose(index); start(); }
     };
 
     function render(time: number) {
@@ -196,12 +220,13 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
       const progress = reduced.matches ? 1 : state.progress;
       const nextInteractive = compact.matches || reduced.matches || progress >= 0.9;
       if (canReview !== nextInteractive) { canReview = nextInteractive; setInteractive(canReview); }
+      analysis.setVisible(canReview && visible);
       const stack = selection.touched && canReview ? 1 : THREE.MathUtils.smoothstep(progress, 0.06, compact.matches ? 0.78 : 0.88);
       const damping = reduced.matches ? 1 : 1 - Math.exp(-delta * 11);
       if (reduced.matches) pointer.set(0, 0);
       smoothed.lerp(pointer, damping);
       group.rotation.set(-smoothed.y * 0.18, smoothed.x * 0.3, smoothed.x * 0.035);
-      const sceneScale = compact.matches ? 0.82 : 1;
+      const sceneScale = (compact.matches ? 0.94 : 1) * THREE.MathUtils.lerp(1, compact.matches ? 0.96 : 0.88, stack);
       group.scale.setScalar(sceneScale);
 
       // Scroll reversal takes back control smoothly; reduced motion has no extraction path.
@@ -224,16 +249,21 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
           lifted: [side * 3.6, 0.22, 2.25, -0.02, -0.06, side * 0.05, 1.03],
         };
       }
-      const active = !!transition || hover >= 0 || !!review?.contains(document.activeElement);
+      const active = !!transition || analysis.state.current.phase === 'running' || hover >= 0 || !!review?.contains(document.activeElement);
       activity = THREE.MathUtils.lerp(activity, active ? 1 : 0, damping);
       const stackFloat = reduced.matches ? 0 : Math.sin(elapsed * 0.9) * 0.09 * stack * (1 - activity * 0.82);
-      group.position.set(smoothed.x * 0.2, -smoothed.y * 0.14 + stackFloat - stack * 0.18, 0);
+      group.position.set(smoothed.x * 0.2, -smoothed.y * 0.14 + stackFloat + stack * (compact.matches ? 0.95 : 0.28), 0);
       // Make room before the print clears the stack, including on narrow desktop screens.
       const extractionRoom = Math.max(1.6, 2.25 * sceneScale + (5.5 * sceneScale + 0.3)
         / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) - baseCameraZ);
       const cameraRoom = transition ? extractionRoom * ease(transition.time / 0.22) * (1 - ease((transition.time - 0.6) / 0.4)) : 0;
       camera.position.z = THREE.MathUtils.lerp(camera.position.z, baseCameraZ + cameraRoom, damping);
       if (transition) transition.time = Math.min(1, transition.time + delta / 1.02);
+      if (canReview && loaded === photos.length && ((transition?.index === selection.selected && transition.time >= 0.58)
+        || (!transition && order[0] === selection.selected && (settled || reduced.matches)))) {
+        analysis.begin(selection.selected);
+      }
+      const evaluation = analysis.state.current;
       let moving = false;
       cards.forEach((card, index) => {
         let target: number[];
@@ -266,6 +296,11 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
         card.rotation.set(pose[3], pose[4], pose[5] + (reduced.matches ? 0 : Math.sin(elapsed * 0.7 + index) * 0.025 * (1 - stack)));
         card.scale.setScalar(pose[6]);
         papers[index].color.lerp(selection.kept.includes(index) ? keepColor : white, damping);
+        const border = borders[index];
+        border.visible = evaluation.index === index && canReview && (evaluation.phase === 'running' || evaluation.phase === 'done');
+        border.material.uniforms.progress.value = evaluation.progress;
+        border.material.uniforms.time.value = evaluation.phase === 'running' ? elapsed : 0;
+        border.material.uniforms.opacity.value = evaluation.phase === 'running' ? 1 : 0.48;
       });
       if (transition?.time === 1) {
         order = transition.order;
@@ -277,7 +312,7 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
     }
     function start() { if (!frame && !disposed && !contextLost && visible && !document.hidden) frame = requestAnimationFrame(render); }
     state.invalidate = start;
-    const onContextLost = () => { if (!disposed) { contextLost = true; cancelAnimationFrame(frame); frame = 0; setReady(false); setInteractive(true); } };
+    const onContextLost = () => { if (!disposed) { contextLost = true; cancelAnimationFrame(frame); frame = 0; analysis.setVisible(true); setReady(false); setInteractive(true); } };
     const onContextRestored = () => { if (!disposed) { contextLost = false; setReady(loaded === photos.length); start(); } };
     renderer.domElement.addEventListener('webglcontextlost', onContextLost);
     renderer.domElement.addEventListener('webglcontextrestored', onContextRestored);
@@ -288,6 +323,7 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
     const observer = new ResizeObserver(resize); observer.observe(element);
     const intersection = new IntersectionObserver(entries => {
       visible = entries[0].isIntersecting;
+      analysis.setVisible(visible && (canReview || contextLost));
       if (visible) { lastTime = 0; start(); }
       else { cancelAnimationFrame(frame); frame = 0; }
     });
@@ -317,7 +353,7 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
       reduced.removeEventListener('change', resize); compact.removeEventListener('change', resize);
       renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
       renderer.domElement.removeEventListener('webglcontextrestored', onContextRestored);
-      geometry.dispose(); imageGeometry.dispose(); captionGeometry.dispose();
+      geometry.dispose(); imageGeometry.dispose(); captionGeometry.dispose(); borderGeometry.dispose();
       cards.forEach(card => card.traverse(object => {
         if (object instanceof THREE.Mesh) {
           const materials = Array.isArray(object.material) ? object.material : [object.material];
@@ -327,38 +363,58 @@ export default function PhotoScene({ motion }: { motion: MutableRefObject<SceneM
       textures.forEach(texture => texture.dispose());
       renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove();
     };
-  }, [motion]);
+  }, [motion, analysis, choose]);
 
-  function choose(index: number) {
-    choices.current.touched = true;
-    setSelected(index);
-  }
   const isKept = kept.includes(selected);
-  return <div className="landing-photo-experience" data-interactive={interactive}>
+  const demo = photos[selected].demo;
+  const analysisPhase = analysisView.index === selected ? analysisView.phase : 'idle';
+  return <div className="landing-photo-experience" data-interactive={interactive} data-analysis={analysisPhase}>
     <div ref={host} className="landing-scene" data-ready={ready} aria-hidden="true">
       <div className="landing-photo-fallback">
-        <img src={photos[(selected + 4) % 5].src} alt="" /><img src={photos[(selected + 1) % 5].src} alt="" /><img src={photos[selected].src} alt="" />
+        <img src={photos[(selected + 4) % 5].src} alt="" /><img src={photos[(selected + 1) % 5].src} alt="" />
+        <div className="landing-fallback-print"><img src={photos[selected].src} alt="" />
+          <svg viewBox="0 0 340 258" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id={gradientId}><stop stopColor="#a36af2" /><stop offset=".3" stopColor="#db83ef" /><stop offset=".6" stopColor="#f48fbb" /><stop offset=".8" stopColor="#d47feb" /><stop offset="1" stopColor="#a36af2" /></linearGradient>
+              <mask id={`${gradientId}-reveal`} maskUnits="userSpaceOnUse" x="-10" y="-10" width="360" height="278">
+                <path className="landing-analysis-reveal" d={fallbackBorder} pathLength="1" />
+              </mask>
+            </defs>
+            <g mask={`url(#${gradientId}-reveal)`}>
+              <path className="landing-analysis-glow" d={fallbackBorder} stroke={`url(#${gradientId})`} />
+              <path d={fallbackBorder} stroke={`url(#${gradientId})`} />
+              <path className="landing-analysis-glint" d={fallbackBorder} pathLength="1" stroke="#ffe5fb" />
+            </g>
+          </svg>
+        </div>
       </div>
     </div>
     <div className="landing-photo-review" inert={!interactive} aria-hidden={!interactive}>
-      <p className="landing-review-status" aria-live="polite"><span>试试选片 · {photos[selected].title}</span><span>已保留 {kept.length} 张</span></p>
+      <p className="landing-review-status" aria-live="polite"><span>试试 AI 选片 · {photos[selected].title}</span><span>已保留 {kept.length} 张</span></p>
       <div className="landing-photo-actions">
         <div className="landing-photo-picker" role="group" aria-label="选择一张模拟照片">
-          {photos.map((photo, index) => <button key={photo.title} type="button" aria-label={`查看${photo.title}`} aria-pressed={selected === index}
+          {photos.map((photo, index) => <button key={photo.title} type="button" aria-label={`查看${photo.title}${analysisView.completed.includes(index) ? '，已完成模拟分析' : ''}`} aria-pressed={selected === index}
             onClick={() => choose(index)} onKeyDown={event => {
               if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
               event.preventDefault();
               const next = (index + (event.key === 'ArrowRight' ? 1 : 4)) % 5;
               choose(next);
               event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')[next]?.focus();
-            }}><img src={photo.src} alt="" />{kept.includes(index) && <span><Check size={10} /></span>}</button>)}
+            }}><img src={photo.src} alt="" />{analysisView.completed.includes(index) && <span className="landing-photo-analyzed"><Sparkles size={9} /></span>}{kept.includes(index) && <span><Check size={10} /></span>}</button>)}
         </div>
         <button className="landing-keep-photo" type="button" aria-pressed={isKept} onClick={() => setKept(current => current.includes(selected) ? current.filter(index => index !== selected) : [...current, selected])}>
           <Check size={14} />{isKept ? '取消保留' : '保留这张'}
         </button>
-        <button className="landing-reset-photos" type="button" aria-label="重置模拟选片" onClick={() => { setKept([]); choose(2); }}><RotateCcw size={14} /></button>
+        <button className="landing-reset-photos" type="button" aria-label="重置模拟选片与分析" onClick={() => { setKept([]); choices.current.selected = 2; setSelected(2); analysis.reset(); motion.current.invalidate?.(); }}><RotateCcw size={14} /></button>
       </div>
-      <p className="landing-review-hint">点露出的照片边缘或缩略图，将喜欢的画面抽到最前。仅为互动演示。</p>
+      <div className="landing-ai-result" data-phase={analysisPhase} role="status" aria-live="polite" aria-atomic="true" aria-busy={analysisPhase === 'waiting' || analysisPhase === 'running'}>
+        {analysisPhase === 'done' ? <>
+          <div className="landing-ai-result-heading"><span><Sparkles size={13} />模拟 AI 评价</span><span className="landing-ai-score"><strong>{demo.score}</strong><span>/100 分</span></span></div>
+          <p className="landing-ai-reason">{demo.reason}</p>
+          <div className="landing-ai-categories"><span>分类</span>{demo.categories.map(category => <span key={category}>{category}</span>)}</div>
+        </> : <div className="landing-ai-prompt">{analysisPhase === 'idle' ? <Sparkles size={18} /> : <BrandLoader />}<div><p>{analysisPhase === 'idle' ? '点一张照片，体验 AI 评价与分类' : analysisPhase === 'waiting' ? '正在准备评价这张照片…' : 'AI 正在模拟评价画面…'}</p><span>{analysisPhase === 'idle' ? '评分、评价理由与分类，一起看见。' : '观察光影与构图，识别画面场景。'}</span></div></div>}
+      </div>
+      <p className="landing-review-hint">模拟评分与分类仅供体验，精选始终由你决定。</p>
     </div>
   </div>;
 }

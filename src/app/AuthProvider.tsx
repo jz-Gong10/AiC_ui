@@ -3,13 +3,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api, setAccessToken } from '../shared/api';
 import { demoAvailable, isDemoSession, setDemoSession } from '../shared/demoMode';
 import type { AuthResult, User } from '../shared/types';
+import { useWorkspaceEntryTransition } from './WorkspaceEntryTransition';
 
 interface AuthContextValue {
   user: User | null; loading: boolean;
   signIn(email: string, password: string): Promise<void>;
   signUp(email: string, password: string, name: string): Promise<void>;
   signOut(): Promise<void>;
-  enterDemo(): void;
+  enterDemo(): Promise<void>;
 }
 const AuthContext = createContext<AuthContextValue | null>(null);
 const STORAGE_KEY = 'cullpilot.auth.v1';
@@ -25,6 +26,7 @@ function restore(): { token: string; expiresAt: string } | null {
 }
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const entry = useWorkspaceEntryTransition();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -45,18 +47,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(result.user);
   }
   return <AuthContext.Provider value={{ user, loading,
-    async signIn(email, password) { setDemoSession(false); queryClient.clear(); accept(await api.login(email, password)); },
-    async signUp(email, password, name) { setDemoSession(false); queryClient.clear(); accept(await api.register(email, password, name)); },
+    async signIn(email, password) { setDemoSession(false); queryClient.clear(); const result = await api.login(email, password); await entry.enter(() => accept(result)); },
+    async signUp(email, password, name) { setDemoSession(false); queryClient.clear(); const result = await api.register(email, password, name); await entry.enter(() => accept(result)); },
     async signOut() {
-      try { if (!isDemoSession()) await api.logout(); } finally { setDemoSession(false); setAccessToken(null); sessionStorage.removeItem(STORAGE_KEY); queryClient.clear(); setUser(null); }
+      try { if (!isDemoSession()) await api.logout(); } finally { entry.cancel(); setDemoSession(false); setAccessToken(null); sessionStorage.removeItem(STORAGE_KEY); queryClient.clear(); setUser(null); }
     },
-    enterDemo() {
+    async enterDemo() {
       if (!demoAvailable) return;
-      queryClient.clear();
-      setAccessToken(null);
-      sessionStorage.removeItem(STORAGE_KEY);
-      setDemoSession(true);
-      setUser(demoUser);
+      await entry.enter(() => {
+        queryClient.clear();
+        setAccessToken(null);
+        sessionStorage.removeItem(STORAGE_KEY);
+        setDemoSession(true);
+        setUser(demoUser);
+      });
     },
   }}>{children}</AuthContext.Provider>;
 }

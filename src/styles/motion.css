@@ -85,20 +85,7 @@
 .gallery-stage { display: flex; flex: 1; flex-direction: column; min-height: 0; position: relative; }
 
 .filters button { position: relative; }
-.filters button[data-pending=true]::after {
-  content: '';
-  position: absolute;
-  bottom: 1px;
-  left: 10px;
-  right: 10px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-  animation: pending-pulse .7s ease-in-out infinite alternate;
-}
 .workspace-link[data-pending=true] { background: var(--accent-soft); }
-.workspace-link[data-pending=true] .workspace-icon svg { animation: pending-pulse .7s ease-in-out infinite alternate; }
-@keyframes pending-pulse { from { opacity: .3; } to { opacity: 1; } }
 
 
 .dialog-overlay[data-state=open],

@@ -1,0 +1,27 @@
+.workspace-entry-content { display: contents; }
+.workspace-entry-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  overflow: hidden;
+  background: rgba(245, 246, 252, .78);
+  -webkit-backdrop-filter: blur(24px) saturate(.75);
+  backdrop-filter: blur(24px) saturate(.75);
+  opacity: 1;
+  animation: workspace-entry-cover 180ms ease-out both;
+  touch-action: none;
+}
+:root[data-mode=dark] .workspace-entry-overlay { background: rgba(14, 18, 32, .82); }
+.workspace-entry-overlay[data-phase=leaving] { animation: workspace-entry-uncover 240ms ease both; opacity: 0; }
+.workspace-entry-status { width: min(100%, 340px); text-align: center; color: var(--ink); outline: none; }
+.workspace-entry-status h2 { margin: 22px 0 8px; font-size: clamp(18px, 4.8vw, 22px); letter-spacing: -.025em; font-weight: 600; }
+.workspace-entry-status p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+@keyframes workspace-entry-cover { from { opacity: 0; } to { opacity: 1; } }
+@keyframes workspace-entry-uncover { from { opacity: 1; } to { opacity: 0; } }
+@media (max-width: 540px) { .workspace-entry-overlay { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); } }
+@media (prefers-reduced-motion: reduce) {
+  .workspace-entry-overlay, .workspace-entry-overlay[data-phase=leaving] { animation: none; }
+}

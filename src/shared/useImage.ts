@@ -37,7 +37,7 @@ export function clearImageCache() {
   cache.clear();
   pending.clear();
 }
-export function useImage(path: string | null | undefined) {
+export function useImageState(path: string | null | undefined) {
   const [state, setState] = useState<{ path: string | null; url: string | null }>({ path: null, url: null });
   useEffect(() => {
     if (!path) return;
@@ -46,5 +46,6 @@ export function useImage(path: string | null | undefined) {
     loadImage(path).then(url => { if (active) setState({ path, url }); }).catch(() => { if (active) setState({ path, url: null }); });
     return () => { active = false; };
   }, [path]);
-  return path ? cache.get(path) || (state.path === path ? state.url : null) : null;
+  const url = path ? cache.get(path) || (state.path === path ? state.url : null) : null;
+  return { url, pending: !!path && !url && state.path !== path };
 }

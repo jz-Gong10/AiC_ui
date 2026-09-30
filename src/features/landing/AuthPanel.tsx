@@ -6,6 +6,7 @@ import { useGSAP } from '@gsap/react';
 import { useAuth } from '../../app/AuthProvider';
 import { demoAvailable } from '../../shared/demoMode';
 import { errorText } from '../../shared/errors';
+import { BrandLoader } from '../../shared/BrandLoader';
 
 gsap.registerPlugin(useGSAP);
 
@@ -94,7 +95,7 @@ export function AuthPanel() {
         </label>
         {error && <p className="landing-auth-error" role="alert">{error}</p>}
         <button className="landing-button landing-submit" disabled={busy} type="submit">
-          {busy ? '请稍候…' : register ? '创建账户' : '登录工作台'}<ArrowRight size={17} aria-hidden="true" />
+          {busy ? '请稍候…' : register ? '创建账户' : '登录工作台'}{busy ? <BrandLoader inverse /> : <ArrowRight size={17} aria-hidden="true" />}
         </button>
         <p className="landing-switch">{register ? '已经有账户？' : '还没有账户？'}
           <button type="button" disabled={busy} onClick={() => changeMode(!register)}>{register ? '返回登录' : '创建账户'}</button>
@@ -102,7 +103,13 @@ export function AuthPanel() {
       </form>
     </div>
     {demoAvailable && <div className="landing-demo">
-      <button type="button" disabled={busy} onClick={() => { auth.enterDemo(); navigate('/projects', { replace: true }); }}>进入本地演示（无需登录）<ArrowRight size={14} /></button>
+      <button type="button" disabled={busy} onClick={async () => {
+        if (busy) return;
+        setBusy(true); setError('');
+        try { await auth.enterDemo(); navigate('/projects', { replace: true }); }
+        catch (reason) { setError(errorText(reason)); }
+        finally { setBusy(false); }
+      }}>进入本地演示（无需登录）<ArrowRight size={14} /></button>
       <p>演示数据仅在当前页面运行，刷新后重置。</p>
     </div>}
     <p className="landing-storage-note"><LockKeyhole size={13} aria-hidden="true" /><span>登录后，照片上传至当前配置的 CullPilot 服务，存储位置由服务端决定。</span></p>

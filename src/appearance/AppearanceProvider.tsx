@@ -17,8 +17,11 @@ export const styles = [
   ['retro', '复古终端'], ['minimal', '极简留白'], ['contrast', '清晰高对比'],
 ] as const;
 export type Layout = 'overview' | 'focus' | 'compare';
-interface Appearance { mode: 'light' | 'dark'; color: number; style: string; layout: Layout }
-interface AppearanceContextValue extends Appearance {
+export type ThemeMode = 'light' | 'dark' | 'system';
+interface Appearance { mode: ThemeMode; color: number; style: string; layout: Layout }
+interface AppearanceContextValue extends Omit<Appearance, 'mode'> {
+  mode: 'light' | 'dark';
+  modePreference: ThemeMode;
   setMode(value: Appearance['mode']): void;
   setColor(value: number): void;
   setStyle(value: string): void;
@@ -31,7 +34,7 @@ function initial(): Appearance {
     const value = JSON.parse(platform.readPreference(KEY) || 'null') as Partial<Appearance> | null;
     if (!value) return defaults;
     return {
-      mode: value.mode === 'dark' ? 'dark' : 'light',
+      mode: value.mode === 'dark' || value.mode === 'system' ? value.mode : 'light',
       color: Number.isInteger(value.color) && value.color! >= 0 && value.color! < colors.length ? value.color! : 0,
       style: styles.some(item => item[0] === value.style) ? value.style! : 'flat',
       layout: value.layout === 'focus' || value.layout === 'compare' ? value.layout : 'overview',
@@ -41,17 +44,26 @@ function initial(): Appearance {
 const Context = createContext<AppearanceContextValue | null>(null);
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<Appearance>(initial);
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const mode = state.mode === 'system' ? (systemDark ? 'dark' : 'light') : state.mode;
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (event: MediaQueryListEvent) => setSystemDark(event.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
   useEffect(() => {
     platform.writePreference(KEY, JSON.stringify(state));
     const root = document.documentElement;
-    root.dataset.mode = state.mode;
+    root.dataset.mode = mode;
+    root.dataset.modePreference = state.mode;
     root.dataset.style = state.style;
     root.dataset.layout = state.layout;
     const hue = colors[state.color][1];
-    root.style.setProperty('--accent', `hsl(${hue} ${state.color >= 20 ? 28 : 55}% ${state.mode === 'dark' ? 75 : 36}%)`);
-    root.style.setProperty('--accent-soft', `hsl(${hue} 65% ${state.mode === 'dark' ? 21 : 94}%)`);
-  }, [state]);
-  return <Context.Provider value={{ ...state,
+    root.style.setProperty('--accent', `hsl(${hue} ${state.color >= 20 ? 28 : 55}% ${mode === 'dark' ? 75 : 36}%)`);
+    root.style.setProperty('--accent-soft', `hsl(${hue} 65% ${mode === 'dark' ? 21 : 94}%)`);
+  }, [state, mode]);
+  return <Context.Provider value={{ ...state, mode, modePreference: state.mode,
     setMode: mode => setState(current => ({ ...current, mode })),
     setColor: color => setState(current => ({ ...current, color })),
     setStyle: style => setState(current => ({ ...current, style })),
